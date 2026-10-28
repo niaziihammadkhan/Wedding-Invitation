@@ -1,0 +1,908 @@
+/**
+ * Luxury Wedding Invitation — Sellable Template
+ * Fully customizable 3D gatefold invitation with botanical field,
+ * royal chimes, calendar events, live countdown, and responsive styling.
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Volume2,
+  VolumeX,
+  RotateCcw,
+  Share2,
+  Calendar,
+  MapPin,
+  Phone,
+  MessageCircle,
+  Check,
+  Copy,
+  ChevronDown,
+  Download
+} from 'lucide-react';
+import { weddingAudio } from './utils/audio';
+import HeroFlowerField from './components/HeroFlowerField';
+import { WEDDING_CONFIG } from './config/weddingConfig';
+import { WEDDING_EVENTS, createGoogleCalendarUrl, downloadIcsFile } from './utils/calendar';
+
+export default function App() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedAddress, setCopiedAddress] = useState(false);
+  const [petals, setPetals] = useState<Array<{ id: number; left: number; duration: number; delay: number; endX: number }>>([]);
+
+  // Countdown timer state
+  const [timeLeft, setTimeLeft] = useState({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0
+  });
+
+  const heroRef = useRef<HTMLDivElement>(null);
+  const programmeRef = useRef<HTMLDivElement>(null);
+
+  // Trigger countdown timer
+  useEffect(() => {
+    const targetDate = new Date(WEDDING_CONFIG.countdownTargetIso).getTime();
+
+    const updateTimer = () => {
+      const now = new Date().getTime();
+      const distance = targetDate - now;
+
+      if (distance > 0) {
+        setTimeLeft({
+          days: Math.floor(distance / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+          minutes: Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)),
+          seconds: Math.floor((distance % (1000 * 60)) / 1000)
+        });
+      } else {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Subtle Mouse Parallax on Desktop
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (window.innerWidth < 1024) return;
+      const x = (e.clientX / window.innerWidth - 0.5) * 20;
+      const y = (e.clientY / window.innerHeight - 0.5) * 20;
+      // Write to CSS variables instead of state so mouse movement doesn't re-render the page
+      heroRef.current?.style.setProperty('--parallax-x', `${x}px`);
+      heroRef.current?.style.setProperty('--parallax-y', `${y}px`);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+  // Open the card doors with royal chimes & celebratory golden petals
+  const handleOpen = () => {
+    if (isOpen) return;
+    setIsOpen(true);
+    weddingAudio.playUnsealSound();
+
+    // Trigger golden rose petal rain
+    const newPetals = Array.from({ length: 28 }).map((_, i) => ({
+      id: Date.now() + i,
+      left: Math.random() * 95,
+      duration: 5 + Math.random() * 5,
+      delay: Math.random() * 2,
+      endX: (Math.random() - 0.5) * 200
+    }));
+    setPetals(newPetals);
+
+    // Clear petals after animation
+    setTimeout(() => {
+      setPetals([]);
+    }, 12000);
+  };
+
+  // Replay opening
+  const handleReplay = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsOpen(false);
+    setTimeout(() => {
+      handleOpen();
+    }, 600);
+  };
+
+  // Toggle ambient raag audio
+  const handleToggleAudio = () => {
+    const nextState = !isMuted;
+    setIsMuted(nextState);
+    weddingAudio.toggleAmbience(!nextState);
+  };
+
+  // Share link copy
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2500);
+  };
+
+  // Copy address
+  const handleCopyAddress = () => {
+    navigator.clipboard.writeText(`${WEDDING_CONFIG.venue.name}, ${WEDDING_CONFIG.venue.address}`);
+    setCopiedAddress(true);
+    setTimeout(() => setCopiedAddress(false), 2500);
+  };
+
+  const scrollToProgramme = () => {
+    programmeRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  return (
+    <div className="min-h-screen bg-[#FFF9EF] text-[#29251F] selection:bg-[#C9A66B]/30 relative font-heading">
+      {/* Floating Petals Layer */}
+      {petals.map(petal => (
+        <div
+          key={petal.id}
+          className="petal-particle flex items-center justify-center"
+          style={{
+            left: `${petal.left}vw`,
+            animationDuration: `${petal.duration}s`,
+            animationDelay: `${petal.delay}s`,
+            // @ts-expect-error custom css variable
+            '--end-x': `${petal.endX}px`
+          }}
+        >
+          <svg className="w-5 h-5 text-[#E9CFC8] fill-current opacity-85 rotate-45 drop-shadow-sm" viewBox="0 0 24 24">
+            <path d="M12 2C9 6 3 9 3 14a9 9 0 0 0 18 0c0-5-6-8-9-12z" />
+          </svg>
+        </div>
+      ))}
+
+      {/* Floating Action Dock */}
+      <aside className="fixed top-4 right-4 z-50 flex items-center gap-2">
+        <button
+          onClick={handleToggleAudio}
+          className="flex items-center gap-1.5 px-3 py-2 bg-[#FFF9EF]/95 backdrop-blur-md border border-[#C9A66B] rounded-full text-[#164C3B] font-ui text-xs uppercase tracking-wider shadow-md hover:bg-[#164C3B] hover:text-[#FFF9EF] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A66B]"
+          title={isMuted ? 'Turn Celebration Music On' : 'Mute Music'}
+          aria-label={isMuted ? 'Turn Celebration Music On' : 'Mute Music'}
+        >
+          {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-[#C9A66B] animate-pulse" />}
+          <span className="hidden sm:inline">{isMuted ? 'Ambience' : 'Playing'}</span>
+        </button>
+
+        <button
+          onClick={handleReplay}
+          className="flex items-center gap-1.5 px-3 py-2 bg-[#FFF9EF]/95 backdrop-blur-md border border-[#C9A66B] rounded-full text-[#164C3B] font-ui text-xs uppercase tracking-wider shadow-md hover:bg-[#164C3B] hover:text-[#FFF9EF] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A66B]"
+          title="Replay Invitation Unsealing"
+          aria-label="Replay invitation opening"
+        >
+          <RotateCcw className="w-4 h-4" />
+          <span className="hidden sm:inline">Replay</span>
+        </button>
+
+        <button
+          onClick={handleShare}
+          className="flex items-center gap-1.5 px-3 py-2 bg-[#FFF9EF]/95 backdrop-blur-md border border-[#C9A66B] rounded-full text-[#164C3B] font-ui text-xs uppercase tracking-wider shadow-md hover:bg-[#164C3B] hover:text-[#FFF9EF] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A66B]"
+          title="Share Invitation Link"
+          aria-label="Share invitation link"
+        >
+          {copiedLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4" />}
+          <span className="hidden sm:inline">{copiedLink ? 'Copied' : 'Share'}</span>
+        </button>
+      </aside>
+
+      {/* ========================================================
+          HERO STAGE: 3D DOOR-FOLD OPENING CARD
+          ======================================================== */}
+      <header
+        ref={heroRef}
+        className="min-h-screen relative flex flex-col items-center justify-center px-4 py-16 overflow-hidden bg-[radial-gradient(circle_at_50%_40%,#FFFDF8_0%,#FFF9EF_70%,#F5ECDD_100%)]"
+      >
+        {/* Animated Botanical Backdrop (behind the card) */}
+        <HeroFlowerField />
+
+        {/* 3D Gatefold Card Container */}
+        <div className="invitation-3d-wrapper">
+          <div className={`invitation-envelope ${isOpen ? 'is-open' : ''}`} id="invitationEnvelope">
+            
+            {/* INNER REVEALED CARD */}
+            <div className="card-interior relative w-full min-h-[640px] bg-[#FFFCF7] rounded-xl p-4 md:p-6 flex flex-col justify-center items-center">
+              <div className="interior-border-outer w-full h-full p-2 border border-[#C9A66B]/40 rounded-lg">
+                <div className="interior-border-inner relative w-full h-full p-6 sm:p-10 border-[1.5px] border-[#C9A66B] rounded-md text-center flex flex-col items-center justify-center">
+
+                  {/* Corner Filigrees */}
+                  <div className="corner-filigree top-left absolute top-2 left-2 w-9 h-9 pointer-events-none" aria-hidden="true">
+                    <svg viewBox="0 0 60 60"><path d="M5,5 L5,40 C5,20 20,5 40,5 L5,5 Z M12,12 L12,28 C15,18 18,15 28,12 L12,12 Z" fill="#C9A66B"/></svg>
+                  </div>
+                  <div className="corner-filigree top-right absolute top-2 right-2 w-9 h-9 pointer-events-none" aria-hidden="true">
+                    <svg viewBox="0 0 60 60"><path d="M55,5 L55,40 C55,20 40,5 20,5 L55,5 Z M48,12 L48,28 C45,18 42,15 32,12 L48,12 Z" fill="#C9A66B"/></svg>
+                  </div>
+                  <div className="corner-filigree bottom-left absolute bottom-2 left-2 w-9 h-9 pointer-events-none" aria-hidden="true">
+                    <svg viewBox="0 0 60 60"><path d="M5,55 L5,20 C5,40 20,55 40,55 L5,55 Z M12,48 L12,32 C15,42 18,45 28,48 L12,48 Z" fill="#C9A66B"/></svg>
+                  </div>
+                  <div className="corner-filigree bottom-right absolute bottom-2 right-2 w-9 h-9 pointer-events-none" aria-hidden="true">
+                    <svg viewBox="0 0 60 60"><path d="M55,55 L55,20 C55,40 40,55 20,55 L55,55 Z M48,48 L48,32 C45,42 42,45 32,48 L48,48 Z" fill="#C9A66B"/></svg>
+                  </div>
+
+                  {/* Header: Royal Arch Crest & Bismillah */}
+                  <div className={`interior-header mb-4 ${isOpen ? 'animate-fade-in-down' : ''}`}>
+                    <div className="w-28 mx-auto mb-1" aria-hidden="true">
+                      <svg viewBox="0 0 140 40" className="w-full h-8">
+                        <path d="M10,35 Q70,-10 130,35" fill="none" stroke="#C9A66B" strokeWidth="1.5" />
+                        <path d="M25,35 Q70,0 115,35" fill="none" stroke="#A98548" strokeWidth="0.8" />
+                        <circle cx="70" cy="12" r="3.5" fill="#C9A66B" />
+                        <circle cx="58" cy="15" r="2" fill="#A98548" />
+                        <circle cx="82" cy="15" r="2" fill="#A98548" />
+                      </svg>
+                    </div>
+                    <p className="font-arabic text-2xl md:text-3xl text-[#A98548] tracking-wide" dir="rtl">
+                      بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيْمِ
+                    </p>
+                    <p className="font-ui text-[11px] tracking-[0.2em] uppercase text-[#A8B5A0] mt-1 font-medium">
+                      In the name of Allah, the Most Gracious, the Most Merciful
+                    </p>
+                  </div>
+
+                  {/* Hosts & Formal Invitation Request */}
+                  <div className={`interior-hosts max-w-xl mb-4 ${isOpen ? 'animate-fade-in-up' : ''}`}>
+                    <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold text-[#164C3B] tracking-wider uppercase">
+                      {WEDDING_CONFIG.hosts.formalTitle}
+                    </h2>
+                    <div className="gold-divider-gem flex items-center justify-center gap-3 my-2 max-w-[200px] mx-auto" aria-hidden="true">
+                      <span className="flex-1 h-[1px] bg-gradient-to-r from-transparent via-[#C9A66B] to-transparent"></span>
+                      <span className="text-[#C9A66B] text-xs">♦</span>
+                      <span className="flex-1 h-[1px] bg-gradient-to-r from-transparent via-[#C9A66B] to-transparent"></span>
+                    </div>
+                    <p className="text-sm sm:text-base md:text-lg italic text-[#5E584F] leading-relaxed">
+                      {WEDDING_CONFIG.hosts.greetingNote}
+                    </p>
+                  </div>
+
+                  {/* Couple Spotlight */}
+                  <div className={`couple-spotlight my-3 ${isOpen ? 'animate-scale-fade-in' : ''}`}>
+                    <h1 className="font-script text-4xl sm:text-6xl md:text-7xl font-normal text-[#164C3B] leading-none drop-shadow-sm">
+                      {WEDDING_CONFIG.groom.fullName}
+                    </h1>
+                    
+                    <div className="inline-flex items-center justify-center px-5 py-0.5 my-2.5 border border-[#C9A66B] rounded-full bg-[#FFF9EF]/90">
+                      <span className="font-heading text-base sm:text-lg italic text-[#A98548] tracking-wider">
+                        with
+                      </span>
+                    </div>
+
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-[#164C3B] tracking-wide">
+                      {WEDDING_CONFIG.bride.fullName}
+                    </h2>
+                  </div>
+
+                  {/* Footnote: Venue & Date */}
+                  <div className={`interior-footer-note border-t border-[#C9A66B]/30 pt-3 mt-2 w-full max-w-md ${isOpen ? 'animate-fade-in-up' : ''}`}>
+                    <p className="font-ui text-xs sm:text-sm tracking-[0.2em] uppercase text-[#A98548] font-semibold">
+                      {WEDDING_CONFIG.venue.name} • {WEDDING_CONFIG.venue.city}
+                    </p>
+                    <p className="font-heading text-sm sm:text-base text-[#5E584F] italic mt-0.5">
+                      {WEDDING_CONFIG.venue.heroCardDate}
+                    </p>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            {/* LEFT HINGED GATEFOLD DOOR */}
+            <div
+              id="doorLeft"
+              onClick={handleOpen}
+              className="card-door door-left cursor-pointer group"
+              title="Click to open invitation"
+            >
+              <div className="door-inner-pattern w-full h-full p-4 flex flex-col">
+                <div className="door-gold-frame w-full h-full border border-[#C9A66B]/50 relative flex flex-col justify-between items-center p-6 sm:p-8">
+                  {/* Botanical Accent SVG */}
+                  <div className="door-flora-art w-16 h-28 opacity-60" aria-hidden="true">
+                    <svg viewBox="0 0 100 180" className="w-full h-full">
+                      <path d="M10,170 C40,110 20,60 85,15 C60,40 50,75 55,100" fill="none" stroke="#C9A66B" strokeWidth="1.2" strokeLinecap="round" />
+                      <circle cx="85" cy="15" r="4" fill="#E9CFC8" />
+                      <circle cx="65" cy="45" r="3" fill="#C9A66B" />
+                      <circle cx="45" cy="85" r="3.5" fill="#E9CFC8" />
+                      <path d="M25,120 Q55,115 50,140" fill="none" stroke="#A8B5A0" strokeWidth="1" />
+                    </svg>
+                  </div>
+
+                  {/* Monogram Split Circle Left */}
+                  <div className="door-seal-half seal-left absolute top-1/2 -translate-y-1/2 -right-[1px] w-14 h-24 flex items-center justify-end z-10">
+                    <div className="w-14 h-14 border-2 border-[#C9A66B] rounded-full bg-[#0E352A] flex items-center justify-center shadow-inner">
+                      <span className="font-heading text-2xl font-bold text-[#C9A66B]">
+                        {WEDDING_CONFIG.groom.initial}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="door-text-block text-center z-10">
+                    <span className="block font-heading text-sm sm:text-base italic tracking-widest text-[#E3CA98]">
+                      Together With
+                    </span>
+                    <span className="block font-ui text-[11px] tracking-[0.25em] uppercase text-[#FFF9EF] mt-1 font-medium">
+                      Our Families
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT HINGED GATEFOLD DOOR */}
+            <div
+              id="doorRight"
+              onClick={handleOpen}
+              className="card-door door-right cursor-pointer group"
+              title="Click to open invitation"
+            >
+              <div className="door-inner-pattern w-full h-full p-4 flex flex-col">
+                <div className="door-gold-frame w-full h-full border border-[#C9A66B]/50 relative flex flex-col justify-between items-center p-6 sm:p-8">
+                  {/* Botanical Accent SVG Flipped */}
+                  <div className="door-flora-art flip-h w-16 h-28 opacity-60 scale-x-[-1]" aria-hidden="true">
+                    <svg viewBox="0 0 100 180" className="w-full h-full">
+                      <path d="M10,170 C40,110 20,60 85,15 C60,40 50,75 55,100" fill="none" stroke="#C9A66B" strokeWidth="1.2" strokeLinecap="round" />
+                      <circle cx="85" cy="15" r="4" fill="#E9CFC8" />
+                      <circle cx="65" cy="45" r="3" fill="#C9A66B" />
+                      <circle cx="45" cy="85" r="3.5" fill="#E9CFC8" />
+                      <path d="M25,120 Q55,115 50,140" fill="none" stroke="#A8B5A0" strokeWidth="1" />
+                    </svg>
+                  </div>
+
+                  {/* Monogram Split Circle Right */}
+                  <div className="door-seal-half seal-right absolute top-1/2 -translate-y-1/2 -left-[1px] w-14 h-24 flex items-center justify-start z-10">
+                    <div className="w-14 h-14 border-2 border-[#C9A66B] rounded-full bg-[#0E352A] flex items-center justify-center shadow-inner">
+                      <span className="font-heading text-2xl font-bold text-[#C9A66B]">
+                        {WEDDING_CONFIG.bride.initial}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="door-text-block text-center z-10">
+                    <span className="block font-heading text-sm sm:text-base italic tracking-widest text-[#E3CA98]">
+                      Royal Union
+                    </span>
+                    <span className="block font-ui text-[11px] tracking-[0.25em] uppercase text-[#FFF9EF] mt-1 font-medium">
+                      Invitation
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* INTERACTIVE WAX SEAL UNSEAL BUTTON */}
+            <div className="card-lock-trigger absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 transition-all duration-500">
+              <button
+                id="openDoorBtn"
+                onClick={handleOpen}
+                className="group focus:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A66B]/50 rounded-full"
+                aria-label="Open the wedding invitation card"
+              >
+                <span className="flex flex-col items-center gap-2 px-6 py-4 bg-[#0E352A]/95 border-2 border-[#C9A66B] rounded-full shadow-2xl group-hover:scale-105 group-hover:bg-[#164C3B] group-hover:border-[#E3CA98] transition-all duration-300">
+                  <svg className="w-11 h-11 filter drop-shadow-md" viewBox="0 0 48 48" aria-hidden="true">
+                    <circle cx="24" cy="24" r="21" fill="none" stroke="#C9A66B" strokeWidth="1.5" strokeDasharray="3 2" />
+                    <circle cx="24" cy="24" r="18" fill="#164C3B" stroke="#C9A66B" strokeWidth="1.5" />
+                    <path d="M16,24 L24,16 L32,24 L24,32 Z" fill="#C9A66B" opacity="0.9" />
+                    <circle cx="24" cy="24" r="3" fill="#FFF9EF" />
+                  </svg>
+                  <span className="font-ui text-xs tracking-[0.22em] font-semibold text-[#E3CA98] uppercase">
+                    OPEN THE INVITATION
+                  </span>
+                  <span className="font-heading text-sm italic text-[#E9CFC8] tracking-wider">
+                    Click to unseal
+                  </span>
+                </span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Scroll Cue (Becomes active once open) */}
+        <div
+          onClick={scrollToProgramme}
+          className={`cursor-pointer mt-8 flex flex-col items-center gap-1.5 transition-all duration-700 ${
+            isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+          }`}
+          aria-hidden={!isOpen}
+        >
+          <span className="font-ui text-xs tracking-[0.2em] uppercase text-[#A98548] font-medium">
+            Explore Programme &amp; Venue
+          </span>
+          <ChevronDown className="w-5 h-5 text-[#C9A66B] animate-bounce" />
+        </div>
+      </header>
+
+      {/* ========================================================
+          COUNTDOWN TIMER STRIP
+          ======================================================== */}
+      <section className="bg-[#164C3B] text-[#FFF9EF] py-8 border-y border-[#C9A66B]/40">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <p className="font-ui text-xs tracking-[0.25em] uppercase text-[#E3CA98] font-semibold mb-2">
+            Countdown to Celebrations · {WEDDING_CONFIG.venue.city}
+          </p>
+          <div className="grid grid-cols-4 gap-3 sm:gap-6 max-w-lg mx-auto mt-4">
+            <div className="bg-[#0E352A]/80 border border-[#C9A66B]/40 rounded-lg p-3 sm:p-4 shadow-inner">
+              <span className="block font-heading text-2xl sm:text-4xl font-bold text-[#E3CA98] tabular-nums">
+                {timeLeft.days}
+              </span>
+              <span className="font-ui text-[10px] sm:text-xs uppercase tracking-wider text-[#A8B5A0]">Days</span>
+            </div>
+            <div className="bg-[#0E352A]/80 border border-[#C9A66B]/40 rounded-lg p-3 sm:p-4 shadow-inner">
+              <span className="block font-heading text-2xl sm:text-4xl font-bold text-[#E3CA98] tabular-nums">
+                {String(timeLeft.hours).padStart(2, '0')}
+              </span>
+              <span className="font-ui text-[10px] sm:text-xs uppercase tracking-wider text-[#A8B5A0]">Hours</span>
+            </div>
+            <div className="bg-[#0E352A]/80 border border-[#C9A66B]/40 rounded-lg p-3 sm:p-4 shadow-inner">
+              <span className="block font-heading text-2xl sm:text-4xl font-bold text-[#E3CA98] tabular-nums">
+                {String(timeLeft.minutes).padStart(2, '0')}
+              </span>
+              <span className="font-ui text-[10px] sm:text-xs uppercase tracking-wider text-[#A8B5A0]">Mins</span>
+            </div>
+            <div className="bg-[#0E352A]/80 border border-[#C9A66B]/40 rounded-lg p-3 sm:p-4 shadow-inner">
+              <span className="block font-heading text-2xl sm:text-4xl font-bold text-[#E3CA98] tabular-nums">
+                {String(timeLeft.seconds).padStart(2, '0')}
+              </span>
+              <span className="font-ui text-[10px] sm:text-xs uppercase tracking-wider text-[#A8B5A0]">Secs</span>
+            </div>
+          </div>
+          <p className="font-heading italic text-sm text-[#E9CFC8] mt-3">
+            {WEDDING_CONFIG.countdownSubtitle}
+          </p>
+        </div>
+      </section>
+
+      {/* ========================================================
+          SECTION 2: WEDDING PROGRAMME
+          ======================================================== */}
+      <main>
+        <section ref={programmeRef} className="py-20 md:py-28 px-4 bg-[#FFF9EF]" id="programme">
+          <div className="max-w-6xl mx-auto">
+            
+            <div className="text-center mb-16">
+              <span className="font-ui text-xs font-semibold tracking-[0.25em] uppercase text-[#A98548] block mb-2">
+                Auspicious Celebrations
+              </span>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold text-[#164C3B] tracking-wide">
+                Wedding Programme
+              </h2>
+              <div className="gold-divider-gem flex items-center justify-center gap-3 my-3 max-w-[240px] mx-auto" aria-hidden="true">
+                <span className="flex-1 h-[1px] bg-gradient-to-r from-transparent via-[#C9A66B] to-transparent"></span>
+                <span className="text-[#C9A66B] text-sm">❦</span>
+                <span className="flex-1 h-[1px] bg-gradient-to-r from-transparent via-[#C9A66B] to-transparent"></span>
+              </div>
+              <p className="text-base sm:text-lg italic text-[#5E584F] max-w-xl mx-auto">
+                We cordially invite you to share our heartfelt moments and blessings
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+              
+              {/* Event 1: Mehndi */}
+              <article className="bg-[#FFFCF7] border border-[#C9A66B]/40 rounded-lg p-2.5 shadow-sm hover:shadow-xl hover:border-[#C9A66B] hover:-translate-y-1.5 transition-all duration-300 flex flex-col">
+                <div className="border border-[#C9A66B]/25 rounded-md p-6 sm:p-8 text-center flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="w-12 h-6 mx-auto mb-3" aria-hidden="true">
+                      <svg viewBox="0 0 80 30" className="w-full h-full">
+                        <path d="M10,25 C30,5 50,5 70,25" fill="none" stroke="#C9A66B" strokeWidth="1.2" />
+                        <circle cx="40" cy="12" r="3" fill="#164C3B" />
+                      </svg>
+                    </div>
+                    <span className="font-ui text-xs font-semibold tracking-widest uppercase text-[#A8B5A0] block mb-2">
+                      {WEDDING_CONFIG.events[0].badge}
+                    </span>
+                    <h3 className="text-3xl font-semibold text-[#164C3B] mb-1">
+                      {WEDDING_CONFIG.events[0].name}
+                    </h3>
+                    <p className="text-lg italic text-[#A98548] mb-5">
+                      {WEDDING_CONFIG.events[0].date}
+                    </p>
+                    
+                    <div className="w-10 h-[1px] bg-[#C9A66B] mx-auto mb-6 opacity-60"></div>
+
+                    <div className="space-y-3 mb-6">
+                      {WEDDING_CONFIG.events[0].subactivities.map((sub, idx) => (
+                        <div key={idx} className="flex flex-col">
+                          <span className="text-xl font-semibold text-[#29251F]">{sub.name}</span>
+                          <span className="font-ui text-xs font-medium tracking-wider text-[#164C3B]">{sub.time}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="font-ui text-[11px] uppercase tracking-wider text-[#A8B5A0] mb-5">
+                      {WEDDING_CONFIG.events[0].timezone}
+                    </p>
+                    {/* Add to Calendar Action */}
+                    <div className="flex flex-col sm:flex-row gap-2 justify-center pt-3 border-t border-[#C9A66B]/20">
+                      <a
+                        href={createGoogleCalendarUrl(WEDDING_EVENTS[0])}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#FFF9EF] border border-[#C9A66B] rounded-full text-xs font-ui font-medium text-[#164C3B] hover:bg-[#164C3B] hover:text-[#FFF9EF] transition-colors"
+                      >
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>Google Cal</span>
+                      </a>
+                      <button
+                        onClick={() => downloadIcsFile(WEDDING_EVENTS[0])}
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#FFF9EF] border border-[#C9A66B] rounded-full text-xs font-ui font-medium text-[#164C3B] hover:bg-[#164C3B] hover:text-[#FFF9EF] transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>iCal / Apple</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              {/* Event 2: Barat (Featured Centerpiece) */}
+              <article className="bg-[#FFFDF9] border-2 border-[#C9A66B] rounded-lg p-2.5 shadow-xl relative hover:-translate-y-1.5 transition-all duration-300 flex flex-col">
+                <div className="border border-[#C9A66B]/60 rounded-md p-6 sm:p-8 text-center flex-1 flex flex-col justify-between bg-gradient-to-b from-white/60 to-transparent">
+                  <div>
+                    <div className="w-12 h-6 mx-auto mb-3" aria-hidden="true">
+                      <svg viewBox="0 0 80 30" className="w-full h-full">
+                        <path d="M10,25 C30,5 50,5 70,25" fill="none" stroke="#C9A66B" strokeWidth="1.2" />
+                        <circle cx="40" cy="12" r="3.5" fill="#C9A66B" />
+                      </svg>
+                    </div>
+                    <span className="font-ui text-xs font-bold tracking-widest uppercase text-[#A98548] block mb-2">
+                      {WEDDING_CONFIG.events[1].badge}
+                    </span>
+                    <h3 className="text-3xl font-semibold text-[#164C3B] mb-1">
+                      {WEDDING_CONFIG.events[1].name}
+                    </h3>
+                    <p className="text-lg italic text-[#A98548] mb-5">
+                      {WEDDING_CONFIG.events[1].date}
+                    </p>
+                    
+                    <div className="w-10 h-[1px] bg-[#C9A66B] mx-auto mb-6 opacity-80"></div>
+
+                    <div className="space-y-4 mb-6">
+                      {WEDDING_CONFIG.events[1].subactivities.map((sub, idx) => (
+                        <div key={idx} className="flex flex-col">
+                          <span className="text-xl font-semibold text-[#29251F]">{sub.name}</span>
+                          <span className="font-ui text-xs font-medium tracking-wider text-[#164C3B]">{sub.time}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="font-ui text-[11px] uppercase tracking-wider text-[#A8B5A0] mb-5">
+                      {WEDDING_CONFIG.events[1].timezone}
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2 justify-center pt-3 border-t border-[#C9A66B]/30">
+                      <a
+                        href={createGoogleCalendarUrl(WEDDING_EVENTS[1])}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#164C3B] border border-[#C9A66B] rounded-full text-xs font-ui font-medium text-[#FFF9EF] hover:bg-[#0E352A] transition-colors"
+                      >
+                        <Calendar className="w-3.5 h-3.5 text-[#E3CA98]" />
+                        <span>Google Cal</span>
+                      </a>
+                      <button
+                        onClick={() => downloadIcsFile(WEDDING_EVENTS[1])}
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#FFF9EF] border border-[#C9A66B] rounded-full text-xs font-ui font-medium text-[#164C3B] hover:bg-[#164C3B] hover:text-[#FFF9EF] transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>iCal / Apple</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              {/* Event 3: Walima */}
+              <article className="bg-[#FFFCF7] border border-[#C9A66B]/40 rounded-lg p-2.5 shadow-sm hover:shadow-xl hover:border-[#C9A66B] hover:-translate-y-1.5 transition-all duration-300 flex flex-col">
+                <div className="border border-[#C9A66B]/25 rounded-md p-6 sm:p-8 text-center flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="w-12 h-6 mx-auto mb-3" aria-hidden="true">
+                      <svg viewBox="0 0 80 30" className="w-full h-full">
+                        <path d="M10,25 C30,5 50,5 70,25" fill="none" stroke="#C9A66B" strokeWidth="1.2" />
+                        <circle cx="40" cy="12" r="3" fill="#164C3B" />
+                      </svg>
+                    </div>
+                    <span className="font-ui text-xs font-semibold tracking-widest uppercase text-[#A8B5A0] block mb-2">
+                      {WEDDING_CONFIG.events[2].badge}
+                    </span>
+                    <h3 className="text-3xl font-semibold text-[#164C3B] mb-1">
+                      {WEDDING_CONFIG.events[2].name}
+                    </h3>
+                    <p className="text-lg italic text-[#A98548] mb-5">
+                      {WEDDING_CONFIG.events[2].date}
+                    </p>
+                    
+                    <div className="w-10 h-[1px] bg-[#C9A66B] mx-auto mb-6 opacity-60"></div>
+
+                    <div className="space-y-3 mb-6">
+                      {WEDDING_CONFIG.events[2].subactivities.map((sub, idx) => (
+                        <div key={idx} className="flex flex-col">
+                          <span className="text-xl font-semibold text-[#29251F]">{sub.name}</span>
+                          <span className="font-ui text-xs font-medium tracking-wider text-[#164C3B]">{sub.time}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="font-ui text-[11px] uppercase tracking-wider text-[#A8B5A0] mb-5">
+                      {WEDDING_CONFIG.events[2].timezone}
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2 justify-center pt-3 border-t border-[#C9A66B]/20">
+                      <a
+                        href={createGoogleCalendarUrl(WEDDING_EVENTS[2])}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#FFF9EF] border border-[#C9A66B] rounded-full text-xs font-ui font-medium text-[#164C3B] hover:bg-[#164C3B] hover:text-[#FFF9EF] transition-colors"
+                      >
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>Google Cal</span>
+                      </a>
+                      <button
+                        onClick={() => downloadIcsFile(WEDDING_EVENTS[2])}
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#FFF9EF] border border-[#C9A66B] rounded-full text-xs font-ui font-medium text-[#164C3B] hover:bg-[#164C3B] hover:text-[#FFF9EF] transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>iCal / Apple</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================
+            SECTION 3: VENUE HIGHLIGHT (ROYAL EMERALD)
+            ======================================================== */}
+        <section className="py-24 px-4 bg-[radial-gradient(circle_at_center,#164C3B_0%,#0E352A_100%)] text-[#FFF9EF] relative overflow-hidden" id="venue">
+          <div className="max-w-4xl mx-auto flex justify-center relative z-10">
+            <div className="w-full border-[1.5px] border-[#C9A66B] rounded-2xl p-8 sm:p-14 text-center bg-[#0E352A]/60 backdrop-blur-md shadow-2xl">
+              
+              {/* Architectural Pavilion Icon */}
+              <div className="w-20 h-20 mx-auto mb-6" aria-hidden="true">
+                <svg viewBox="0 0 100 100" className="w-full h-full">
+                  <path d="M50,12 L85,38 L85,42 L15,42 L15,38 Z" fill="none" stroke="#C9A66B" strokeWidth="1.8" />
+                  <path d="M22,42 L22,82 M36,42 L36,82 M50,42 L50,82 M64,42 L64,82 M78,42 L78,82" stroke="#C9A66B" strokeWidth="1.4" />
+                  <path d="M10,82 L90,82 L95,88 L5,88 Z" fill="#C9A66B" />
+                  <circle cx="50" cy="28" r="4.5" fill="#FFF9EF" />
+                  <path d="M50,8 L50,14" stroke="#C9A66B" strokeWidth="2" />
+                </svg>
+              </div>
+
+              <span className="font-ui text-xs tracking-[0.25em] uppercase text-[#E3CA98] font-semibold block mb-2">
+                The Destination
+              </span>
+              <h2 className="text-3xl sm:text-5xl font-semibold tracking-wide text-[#FFF9EF] mb-2">
+                {WEDDING_CONFIG.venue.name}
+              </h2>
+
+              <div className="gold-divider-gem flex items-center justify-center gap-3 my-3 max-w-[200px] mx-auto" aria-hidden="true">
+                <span className="flex-1 h-[1px] bg-gradient-to-r from-transparent via-[#E3CA98] to-transparent"></span>
+                <span className="text-[#E3CA98] text-sm">✦</span>
+                <span className="flex-1 h-[1px] bg-gradient-to-r from-transparent via-[#E3CA98] to-transparent"></span>
+              </div>
+
+              <address className="not-italic text-lg sm:text-2xl text-[#E3CA98] font-heading tracking-wider mb-4">
+                {WEDDING_CONFIG.venue.address}
+              </address>
+
+              <p className="max-w-lg mx-auto text-base italic text-[#E9CFC8] leading-relaxed mb-8">
+                {WEDDING_CONFIG.venue.note}
+              </p>
+
+              <div className="flex flex-wrap items-center justify-center gap-4">
+                <a
+                  href={WEDDING_CONFIG.venue.googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-8 py-3.5 border-[1.5px] border-[#C9A66B] rounded-full bg-transparent text-[#FFF9EF] font-ui text-xs font-semibold tracking-[0.18em] uppercase hover:bg-[#C9A66B] hover:text-[#0E352A] transition-all duration-300 shadow-lg"
+                >
+                  <MapPin className="w-4 h-4" />
+                  <span>VIEW VENUE ON GOOGLE MAPS</span>
+                </a>
+
+                <button
+                  onClick={handleCopyAddress}
+                  className="inline-flex items-center gap-2 px-6 py-3.5 border border-[#C9A66B]/50 rounded-full bg-[#0E352A] text-[#E3CA98] font-ui text-xs font-medium tracking-wider uppercase hover:border-[#C9A66B] transition-all"
+                >
+                  {copiedAddress ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                  <span>{copiedAddress ? 'Address Copied!' : 'Copy Address'}</span>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================
+            SECTION 4: RSVP SECTION
+            ======================================================== */}
+        <section className="py-20 md:py-28 px-4 bg-[#FFF9EF]" id="rsvp">
+          <div className="max-w-5xl mx-auto">
+            
+            <div className="relative bg-[#FFFCF7] border border-[#C9A66B]/40 rounded-xl p-8 sm:p-14 shadow-sm">
+              {/* Corner Accents */}
+              <span className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-[#C9A66B] pointer-events-none"></span>
+              <span className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-[#C9A66B] pointer-events-none"></span>
+              <span className="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-[#C9A66B] pointer-events-none"></span>
+              <span className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-[#C9A66B] pointer-events-none"></span>
+
+              <div className="text-center mb-12">
+                <span className="font-ui text-xs font-semibold tracking-[0.25em] uppercase text-[#A98548] block mb-2">
+                  Kind Compliments
+                </span>
+                <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold text-[#164C3B] tracking-wide">
+                  R.S.V.P
+                </h2>
+                <div className="gold-divider-gem flex items-center justify-center gap-3 my-3 max-w-[200px] mx-auto" aria-hidden="true">
+                  <span className="flex-1 h-[1px] bg-gradient-to-r from-transparent via-[#C9A66B] to-transparent"></span>
+                  <span className="text-[#C9A66B] text-xs">♦</span>
+                  <span className="flex-1 h-[1px] bg-gradient-to-r from-transparent via-[#C9A66B] to-transparent"></span>
+                </div>
+                <p className="text-base sm:text-lg italic text-[#5E584F] max-w-lg mx-auto">
+                  Please contact our family coordinators for inquiries and arrangements
+                </p>
+              </div>
+
+              {/* 3 Family Contact Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                {/* Contact 1 */}
+                <div className="text-center p-6 rounded-lg bg-[#FFF9EF] border border-dashed border-[#C9A66B]/50 flex flex-col items-center hover:border-solid hover:border-[#C9A66B] transition-all">
+                  <div className="w-12 h-12 border border-[#C9A66B] rounded-full flex items-center justify-center mb-3.5 bg-[#FFFCF7]">
+                    <span className="font-heading text-xl font-bold text-[#164C3B]">
+                      {WEDDING_CONFIG.rsvp.coordinators[0].initial}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-[#164C3B] mb-2">
+                    {WEDDING_CONFIG.rsvp.coordinators[0].name}
+                  </h3>
+                  <div className="flex flex-col gap-2 mt-1">
+                    <a
+                      href={`tel:${WEDDING_CONFIG.rsvp.coordinators[0].phoneTel}`}
+                      className="inline-flex items-center gap-2 font-ui text-xs font-medium text-[#A98548] px-3.5 py-1.5 rounded-full bg-[#C9A66B]/10 hover:bg-[#164C3B] hover:text-[#FFF9EF] transition-all"
+                      aria-label={`Call ${WEDDING_CONFIG.rsvp.coordinators[0].name}`}
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>{WEDDING_CONFIG.rsvp.coordinators[0].phoneDisplay}</span>
+                    </a>
+                    <a
+                      href={WEDDING_CONFIG.rsvp.coordinators[0].whatsappLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 font-ui text-[11px] text-[#164C3B] hover:underline"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>WhatsApp Message</span>
+                    </a>
+                  </div>
+                </div>
+
+                {/* Contact 2 */}
+                <div className="text-center p-6 rounded-lg bg-[#FFF9EF] border border-dashed border-[#C9A66B]/50 flex flex-col items-center hover:border-solid hover:border-[#C9A66B] transition-all">
+                  <div className="w-12 h-12 border border-[#C9A66B] rounded-full flex items-center justify-center mb-3.5 bg-[#FFFCF7]">
+                    <span className="font-heading text-xl font-bold text-[#164C3B]">
+                      {WEDDING_CONFIG.rsvp.coordinators[1].initial}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-[#164C3B] mb-2">
+                    {WEDDING_CONFIG.rsvp.coordinators[1].name}
+                  </h3>
+                  <div className="flex flex-col gap-2 mt-1">
+                    <a
+                      href={`tel:${WEDDING_CONFIG.rsvp.coordinators[1].phoneTel}`}
+                      className="inline-flex items-center gap-2 font-ui text-xs font-medium text-[#A98548] px-3.5 py-1.5 rounded-full bg-[#C9A66B]/10 hover:bg-[#164C3B] hover:text-[#FFF9EF] transition-all"
+                      aria-label={`Call ${WEDDING_CONFIG.rsvp.coordinators[1].name}`}
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>{WEDDING_CONFIG.rsvp.coordinators[1].phoneDisplay}</span>
+                    </a>
+                    <a
+                      href={WEDDING_CONFIG.rsvp.coordinators[1].whatsappLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 font-ui text-[11px] text-[#164C3B] hover:underline"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>WhatsApp Message</span>
+                    </a>
+                  </div>
+                </div>
+
+                {/* Contact 3 */}
+                <div className="text-center p-6 rounded-lg bg-[#FFF9EF] border border-dashed border-[#C9A66B]/50 flex flex-col items-center hover:border-solid hover:border-[#C9A66B] transition-all">
+                  <div className="w-12 h-12 border border-[#C9A66B] rounded-full flex items-center justify-center mb-3.5 bg-[#FFFCF7]">
+                    <span className="font-heading text-xl font-bold text-[#164C3B]">
+                      {WEDDING_CONFIG.rsvp.coordinators[2].initial}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-[#164C3B] mb-2">
+                    {WEDDING_CONFIG.rsvp.coordinators[2].name}
+                  </h3>
+                  <p className="text-base italic text-[#A8B5A0] mt-1">
+                    {WEDDING_CONFIG.rsvp.coordinators[2].honorific}
+                  </p>
+                  <p className="font-ui text-[11px] text-[#5E584F] mt-2">
+                    {WEDDING_CONFIG.rsvp.coordinators[2].role}
+                  </p>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+        </section>
+
+        {/* ========================================================
+            SECTION 5: FAMILY GREETING & ISLAMIC DUAS
+            ======================================================== */}
+        <section className="py-20 md:py-28 px-4 bg-gradient-to-b from-[#FFF9EF] to-[#F7EFE1] text-center" id="familyGreeting">
+          <div className="max-w-3xl mx-auto">
+            
+            <div className="w-24 h-10 mx-auto mb-4" aria-hidden="true">
+              <svg viewBox="0 0 120 50" className="w-full h-full">
+                <path d="M10,25 C40,5 80,5 110,25 C80,45 40,45 10,25 Z" fill="none" stroke="#C9A66B" strokeWidth="1.2" />
+                <circle cx="60" cy="25" r="4" fill="#C9A66B" />
+                <circle cx="45" cy="25" r="2.5" fill="#E9CFC8" />
+                <circle cx="75" cy="25" r="2.5" fill="#E9CFC8" />
+              </svg>
+            </div>
+
+            <span className="font-ui text-xs tracking-[0.25em] uppercase text-[#A98548] block mb-1">
+              Warmest Regards
+            </span>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold text-[#164C3B] mb-6">
+              Looking Forward
+            </h2>
+
+            <div className="bg-[#FFFCF7] border border-[#C9A66B]/50 rounded-lg p-8 sm:p-10 shadow-sm mb-8">
+              <p className="text-lg italic text-[#5E584F] mb-3">
+                With prayers and warm anticipation of your presence:
+              </p>
+              <p className="text-2xl sm:text-3xl font-semibold text-[#164C3B]">
+                {WEDDING_CONFIG.hosts.formalTitle}
+              </p>
+            </div>
+
+            <div className="pt-6 border-t border-[#C9A66B]/30 max-w-2xl mx-auto">
+              <p className="font-arabic text-2xl sm:text-3xl text-[#164C3B] tracking-wide mb-3" dir="rtl">
+                {WEDDING_CONFIG.closing.arabicDua}
+              </p>
+              <p className="text-base sm:text-lg italic text-[#5E584F] max-w-lg mx-auto">
+                {WEDDING_CONFIG.closing.englishTranslation}
+              </p>
+            </div>
+
+          </div>
+        </section>
+      </main>
+
+      {/* ========================================================
+          FOOTER
+          ======================================================== */}
+      <footer className="py-8 bg-[#0E352A] text-[#FFF9EF] text-center border-t border-[#C9A66B]">
+        <div className="max-w-4xl mx-auto px-4">
+          <p className="font-heading text-lg tracking-wider text-[#E3CA98]">
+            {WEDDING_CONFIG.groom.fullName} &amp; {WEDDING_CONFIG.bride.fullName}
+          </p>
+          <p className="font-ui text-xs tracking-[0.2em] uppercase text-[#A8B5A0] mt-1.5">
+            {WEDDING_CONFIG.closing.footerLocation}
+          </p>
+          <p className="font-ui text-[10px] text-[#A8B5A0]/60 mt-3">
+            Hosted with love &amp; prayers by {WEDDING_CONFIG.hosts.formalTitle}
+          </p>
+        </div>
+      </footer>
+    </div>
+  );
+}
